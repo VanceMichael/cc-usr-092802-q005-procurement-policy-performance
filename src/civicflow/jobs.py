@@ -18,9 +18,13 @@ class JobQueue:
     clock: Clock
 
     def schedule(self, *, job_type: str, subject_id: str, run_at: str, payload: dict) -> str:
-        job_id = new_id("job"); run_at = canonical_instant(run_at)
         with self.database.transaction() as connection:
-            connection.execute("INSERT INTO scheduled_jobs(job_id,job_type,subject_id,run_at,payload_json,status) VALUES(?,?,?,?,?,'waiting')", (job_id, job_type, subject_id, run_at, canonical_json(payload)))
+            return self.schedule_on(connection, job_type=job_type, subject_id=subject_id, run_at=run_at, payload=payload)
+
+    def schedule_on(self, connection, *, job_type: str, subject_id: str, run_at: str, payload: dict) -> str:
+        """在既有事务内登记任务，保证状态变更与任务调度同生共死。"""
+        job_id = new_id("job"); run_at = canonical_instant(run_at)
+        connection.execute("INSERT INTO scheduled_jobs(job_id,job_type,subject_id,run_at,payload_json,status) VALUES(?,?,?,?,?,'waiting')", (job_id, job_type, subject_id, run_at, canonical_json(payload)))
         return job_id
 
     def claim_due(self, *, seconds: int = 30, limit: int = 20) -> list[dict]:

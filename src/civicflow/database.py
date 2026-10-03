@@ -124,6 +124,154 @@ CREATE TABLE IF NOT EXISTS scheduled_jobs (
     last_error TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS jobs_due ON scheduled_jobs(status, run_at, lease_until);
+CREATE TABLE IF NOT EXISTS target_accounts (
+    account_key TEXT PRIMARY KEY,
+    fiscal_year INTEGER NOT NULL,
+    program TEXT NOT NULL,
+    unit_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    state TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS target_accounts_year ON target_accounts(fiscal_year, program, unit_id, category, state);
+CREATE TABLE IF NOT EXISTS target_movements (
+    movement_id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    fiscal_year INTEGER NOT NULL,
+    program TEXT NOT NULL,
+    category TEXT NOT NULL,
+    from_account TEXT NOT NULL,
+    to_account TEXT NOT NULL,
+    amount_minor INTEGER NOT NULL,
+    reference TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    request_key TEXT NOT NULL,
+    occurred_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS movement_from ON target_movements(from_account, occurred_at);
+CREATE INDEX IF NOT EXISTS movement_to ON target_movements(to_account, occurred_at);
+CREATE TABLE IF NOT EXISTS target_versions (
+    account_key TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    amount_minor INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    reference TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    request_key TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(account_key, version)
+);
+CREATE TABLE IF NOT EXISTS target_transfers (
+    transfer_id TEXT PRIMARY KEY,
+    fiscal_year INTEGER NOT NULL,
+    program TEXT NOT NULL,
+    category TEXT NOT NULL,
+    from_unit TEXT NOT NULL,
+    to_unit TEXT NOT NULL,
+    amount_minor INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    state TEXT NOT NULL,
+    proposed_by TEXT NOT NULL,
+    decided_by TEXT,
+    confirm_by TEXT NOT NULL,
+    request_key TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS transfer_pending ON target_transfers(state, confirm_by);
+CREATE TABLE IF NOT EXISTS ratio_rules (
+    rule_id TEXT PRIMARY KEY,
+    program TEXT NOT NULL,
+    category TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    min_ratio_bp INTEGER NOT NULL,
+    catalog_json TEXT NOT NULL,
+    effective_from TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    request_key TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(program, category, version)
+);
+CREATE INDEX IF NOT EXISTS rule_effective ON ratio_rules(program, category, effective_from);
+CREATE TABLE IF NOT EXISTS fulfillment_events (
+    event_id TEXT PRIMARY KEY,
+    account_key TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    amount_minor INTEGER NOT NULL,
+    reference TEXT NOT NULL,
+    rule_id TEXT,
+    detail_json TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    request_key TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    UNIQUE(account_key, seq)
+);
+CREATE INDEX IF NOT EXISTS event_account ON fulfillment_events(account_key, seq);
+CREATE TABLE IF NOT EXISTS fulfillment_receipts (
+    source TEXT NOT NULL,
+    receipt_no TEXT NOT NULL,
+    payload_digest TEXT NOT NULL,
+    status TEXT NOT NULL,
+    result_json TEXT,
+    first_seen_at TEXT NOT NULL,
+    PRIMARY KEY(source, receipt_no)
+);
+CREATE TABLE IF NOT EXISTS fulfillment_quarantine (
+    quarantine_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
+    receipt_no TEXT NOT NULL,
+    existing_digest TEXT NOT NULL,
+    incoming_digest TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    received_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS exception_requests (
+    exception_id TEXT PRIMARY KEY,
+    account_key TEXT NOT NULL,
+    amount_minor INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    state TEXT NOT NULL,
+    requested_by TEXT NOT NULL,
+    decided_by TEXT,
+    decision_reason TEXT,
+    request_key TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    decided_at TEXT
+);
+CREATE TABLE IF NOT EXISTS stage_reports (
+    report_id TEXT PRIMARY KEY,
+    fiscal_year INTEGER NOT NULL,
+    program TEXT NOT NULL,
+    unit_id TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    corrects_report_id TEXT,
+    snapshot_json TEXT NOT NULL,
+    state TEXT NOT NULL,
+    published_by TEXT NOT NULL,
+    published_at TEXT NOT NULL,
+    request_key TEXT NOT NULL,
+    UNIQUE(fiscal_year, program, unit_id, stage, version)
+);
+CREATE TABLE IF NOT EXISTS rectifications (
+    rectification_id TEXT PRIMARY KEY,
+    account_key TEXT NOT NULL,
+    gap_minor INTEGER NOT NULL,
+    assignee TEXT NOT NULL,
+    due_at TEXT NOT NULL,
+    state TEXT NOT NULL,
+    reminded_at TEXT,
+    created_by TEXT NOT NULL,
+    request_key TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS rectification_open ON rectifications(state, due_at);
 """
 
 
